@@ -139,14 +139,14 @@
         state[collection] = snapshot.docs.map(doc => ({...doc.data(),id:doc.data().id ?? doc.id}));
         cache[`admin:${collection}`] = new Map(state[collection].map(row => [rowId(row),JSON.stringify(row)]));
         rebuild();
-      }, showCloudError));
+      }, showBackgroundCloudError));
     }
     listeners.push(db.collection('appData').doc('meta').onSnapshot(snapshot => {
       if (snapshot.metadata.hasPendingWrites) return;
       state.pricing = snapshot.exists ? snapshot.data().pricing : undefined;
       cache['admin:pricing'] = JSON.stringify(state.pricing || {});
       rebuild();
-    }, showCloudError));
+    }, showBackgroundCloudError));
   }
 
   function watchAgent(uid) {
@@ -158,14 +158,14 @@
         state[collection] = snapshot.docs.map(doc => ({...doc.data(),id:doc.data().id ?? doc.id}));
         cache[`${uid}:${collection}`] = new Map(state[collection].map(row => [rowId(row),JSON.stringify(row)]));
         rebuild();
-      }, showCloudError));
+      }, showBackgroundCloudError));
     }
     listeners.push(db.collection('agentData').doc(uid).collection('meta').doc('pricing').onSnapshot(snapshot => {
       if (snapshot.metadata.hasPendingWrites) return;
       state.pricing = snapshot.exists ? snapshot.data().pricing : undefined;
       cache[`${uid}:pricing`] = JSON.stringify(state.pricing || {});
       rebuild();
-    }, showCloudError));
+    }, showBackgroundCloudError));
   }
 
   async function activateInner(user) {
@@ -196,8 +196,9 @@
   }
 
   let lastCloudError = '';
-  function showCloudError(error, operation = 'مزامنة البيانات') {
+  function showCloudError(error, operation = 'مزامنة البيانات', notifyUser = true) {
     console.error('Firebase:',error);
+    if (error?.code === 'permission-denied' && !notifyUser) return;
     const message = error?.code === 'permission-denied'
       ? `رفضت قواعد Firebase العملية: ${operation}. تأكد من وجود userRoles للحساب.`
       : 'تعذر مزامنة Firebase؛ تحقق من الاتصال وإعدادات المشروع.';
@@ -206,6 +207,7 @@
       notify(message);
     }
   }
+  const showBackgroundCloudError = error => showCloudError(error, 'المزامنة الخلفية', false);
 
   window.SariCloud={
     ready,
