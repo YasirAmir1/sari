@@ -44,9 +44,33 @@ agentName: "اسم الوكيل كما في التطبيق" (string)
 
 انسخ محتوى `firestore.rules` إلى **Firestore Database → Rules** ثم اضغط **Publish**. القواعد تمنع الوكيل من قراءة بيانات الإدارة، وتسمح له بقراءة نسخته الخاصة وإرسال طلبات البيع فقط. لا تستخدم قواعد مفتوحة للجميع.
 
-## 6. انشر وظائف إدارة الحسابات
+## 6. إدارة الحسابات عبر Vercel بدون Blaze
 
-إدارة الحسابات من داخل الموقع تحتاج إلى Firebase Functions لأن المتصفح لا يملك صلاحية إنشاء مستخدمين آخرين أو تغيير كلمات مرورهم. من مجلد المشروع ثبّت Firebase CLI ثم نفّذ:
+إدارة الحسابات من الموقع تعمل عبر `api/manage-user.js` في Vercel، ولا تحتاج Firebase Functions أو ترقية Blaze. أنشئ مفتاح خدمة من:
+
+**Firebase Console → Project settings → Service accounts → Generate new private key**
+
+لا ترفع ملف JSON إلى GitHub. في Vercel افتح **Project Settings → Environment Variables** وأضف المتغيرات التالية للقيم الموجودة في ملف المفتاح:
+
+```text
+FIREBASE_PROJECT_ID=sari-ebb8e
+FIREBASE_CLIENT_EMAIL=client_email
+FIREBASE_PRIVATE_KEY=private_key
+```
+
+أضفها إلى **Production** و**Preview**، ثم أعد النشر. عند نسخ `FIREBASE_PRIVATE_KEY` إلى Vercel اترك قيمة المفتاح كاملة، بما فيها:
+
+```text
+-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+```
+
+هذه القيم سرية ولا توضع في `firebase-config.js` أو GitHub. لا تستخدم مفتاح الخدمة في المتصفح.
+
+## 7. Firebase Functions (اختياري)
+
+مسار Functions القديم اختياري فقط إذا قررت استخدام Firebase Functions لاحقاً. مسار Vercel أعلاه هو المسار المستخدم حالياً ولا يحتاج إلى هذه الخطوة. إذا رغبت بنشر المسار القديم، من مجلد المشروع ثبّت Firebase CLI ثم نفّذ:
 
 ```text
 npm install -g firebase-tools
@@ -62,7 +86,7 @@ firebase deploy --only functions,firestore:rules
 
 لأسباب أمنية، لا تضع `serviceAccount.json` أو أي مفتاح خاص داخل المشروع أو GitHub.
 
-## 7. سجّل الدخول وانقل البيانات المحلية
+## 8. سجّل الدخول وانقل البيانات المحلية
 
 افتح التطبيق على الجهاز الذي يحتوي بيانات `localStorage` الحالية، ثم سجّل الدخول بحساب المدير وكلمة المرور التي أنشأتها. إذا كانت قاعدة Firestore جديدة، يرفع التطبيق بيانات هذا المتصفح أول مرة. بيانات متصفحات أو أجهزة أخرى لا تُدمج تلقائياً؛ صدّرها واحتفظ بنسخة احتياطية قبل النقل.
 

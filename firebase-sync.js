@@ -3,14 +3,12 @@
   const COLLECTIONS = ['agents', 'sales', 'debts', 'users', 'codes', 'agentSettlements'];
   const ready = Boolean(config?.apiKey && config?.projectId);
   let auth, db, profile = null, currentUser = null, dataCallback = null;
-  let functions;
   let listeners = [], cache = Object.create(null), saveQueue = Promise.resolve(), activationPromise = null;
 
   if (ready && window.firebase) {
     const app = firebase.initializeApp(config);
     auth = firebase.auth(app);
     db = firebase.firestore(app);
-    functions = firebase.functions(app);
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(console.error);
   }
 
@@ -228,8 +226,15 @@
     },
     async manageUser(payload){
       if(!ready||!profile||profile.role!=='admin') throw new Error('هذه العملية متاحة للمدير فقط.');
-      if(!functions) throw new Error('خدمة إدارة الحسابات غير متاحة.');
-      return (await functions.httpsCallable('manageUser')(payload)).data;
+      const token=await currentUser.getIdToken();
+      const response=await fetch('/api/manage-user',{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+        body:JSON.stringify(payload)
+      });
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(result.error||'تعذر تنفيذ إدارة الحساب.');
+      return result;
     },
     start(onData,onSignedOut){
       dataCallback=onData;

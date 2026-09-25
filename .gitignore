@@ -28,6 +28,7 @@ bin/
 ### VS Code ###
 .vscode/
 functions/node_modules/
+node_modules/
 
 ### Mac OS ###
 .DS_Store
