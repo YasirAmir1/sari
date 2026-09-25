@@ -52,7 +52,7 @@ async function requireAdmin(firebaseAdmin, token) {
     fail(401, 'جلسة تسجيل الدخول منتهية. سجّل الدخول مرة أخرى.');
   }
   const role = await firebaseAdmin.firestore().collection('userRoles').doc(decoded.uid).get();
-  if (!role.exists || role.data().role !== 'admin') {
+  if (!role.exists || !['admin', 'أدمن', 'مدير رئيسي'].includes(role.data().role)) {
     fail(403, 'هذه العملية متاحة للمدير فقط.');
   }
   return decoded;
