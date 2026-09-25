@@ -233,7 +233,7 @@
         body:JSON.stringify(payload)
       });
       const result=await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(result.error||'تعذر تنفيذ إدارة الحساب.');
+      if(!response.ok) throw new Error(result.error||`تعذر تنفيذ إدارة الحساب (HTTP ${response.status}).`);
       return result;
     },
     start(onData,onSignedOut){

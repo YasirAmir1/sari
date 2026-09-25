@@ -148,6 +148,14 @@ async function manageUser(data, callerUid) {
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      ready: Boolean(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY),
+      projectConfigured: Boolean(process.env.FIREBASE_PROJECT_ID),
+      clientConfigured: Boolean(process.env.FIREBASE_CLIENT_EMAIL),
+      keyConfigured: Boolean(process.env.FIREBASE_PRIVATE_KEY)
+    });
+  }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -157,7 +165,9 @@ module.exports = async (req, res) => {
     return res.status(200).json(result);
   } catch (error) {
     const status = Number(error.status) || (error.code === 'auth/email-already-exists' ? 409 : 500);
-    const message = status >= 500 ? 'تعذر تنفيذ إدارة الحساب.' : error.message;
+    const message = status >= 500
+      ? `تعذر تنفيذ إدارة الحساب: ${error.message || 'خطأ في إعدادات Vercel أو Firebase.'}`
+      : error.message;
     console.error('manage-user:', error);
     return res.status(status).json({ error: message });
   }
