@@ -75,6 +75,10 @@ async function manageUser(data, callerUid) {
   const firebaseAdmin = getAdmin();
   const auth = firebaseAdmin.auth();
   const db = firebaseAdmin.firestore();
+  const callerRole = await db.collection('userRoles').doc(callerUid).get();
+  if (!callerRole.exists || callerRole.data().username !== 'abdsari') {
+    fail(403, 'تغيير كلمات المرور والرموز السرية متاح لمدير المركز فقط.');
+  }
   const action = String(data.action || '');
   const projectId = process.env.FIREBASE_PROJECT_ID;
 
