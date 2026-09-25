@@ -116,8 +116,9 @@
   }
 
   async function syncAdminSnapshot(data) {
-    const roles = await db.collection('userRoles').where('role','==','agent').get();
-    await Promise.all(roles.docs.map(doc => replaceAgentView(data, doc.id, doc.data())));
+    const roles = await db.collection('userRoles').get();
+    const agents = roles.docs.filter(doc => ['agent', 'وكيل'].includes(doc.data().role));
+    await Promise.all(agents.map(doc => replaceAgentView(data, doc.id, doc.data())));
   }
 
   async function saveAdmin(data) {
@@ -146,16 +147,26 @@
       cache['admin:pricing'] = JSON.stringify(state.pricing || {});
       rebuild();
     }, showCloudError));
-    listeners.push(db.collectionGroup('items').onSnapshot(snapshot => {
-      if (!profile || profile.role !== 'admin' || snapshot.metadata.hasPendingWrites) return;
-      let changed = false;
-      for (const doc of snapshot.docs) {
-        const sale = doc.data().sale;
-        if (!sale?.id || state.sales.some(item => String(item.id) === String(sale.id))) continue;
-        state.sales.push({...sale,agentUid:doc.ref.parent.parent.id}); changed = true;
-      }
-      if (changed) { publish(state); saveAdmin(state).catch(showCloudError); }
-    }, showCloudError));
+    db.collection('userRoles').get().then(snapshot => {
+      snapshot.docs
+        .filter(doc => ['agent', 'وكيل'].includes(doc.data().role))
+        .forEach(doc => {
+          listeners.push(db.collection('agentSubmissions').doc(doc.id).collection('items').onSnapshot(submissions => {
+            if (submissions.metadata.hasPendingWrites) return;
+            let changed = false;
+            for (const submission of submissions.docs) {
+              const sale = submission.data().sale;
+              if (!sale?.id || state.sales.some(item => String(item.id) === String(sale.id))) continue;
+              state.sales.push({...sale, agentUid: doc.id});
+              changed = true;
+            }
+            if (changed) {
+              publish(state);
+              saveAdmin(state).catch(showCloudError);
+            }
+          }, showCloudError));
+        });
+    }).catch(showCloudError);
   }
 
   function watchAgent(uid) {
@@ -212,9 +223,16 @@
     try { return await activationPromise; } finally { activationPromise = null; }
   }
 
-  function showCloudError(error) {
+  let lastCloudError = '';
+  function showCloudError(error, operation = 'مزامنة البيانات') {
     console.error('Firebase:',error);
-    if(window.notify) notify(error?.code==='permission-denied'?'رفضت قواعد Firebase هذا الإجراء. راجع إعداد الصلاحيات.':'تعذر مزامنة Firebase؛ تحقق من الاتصال وإعدادات المشروع.');
+    const message = error?.code === 'permission-denied'
+      ? `رفضت قواعد Firebase العملية: ${operation}. تأكد من وجود userRoles للحساب.`
+      : 'تعذر مزامنة Firebase؛ تحقق من الاتصال وإعدادات المشروع.';
+    if(window.notify && message !== lastCloudError) {
+      lastCloudError = message;
+      notify(message);
+    }
   }
 
   window.SariCloud={

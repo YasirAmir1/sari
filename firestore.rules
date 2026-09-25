@@ -3,9 +3,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function roleDoc(uid) { return get(/databases/$(database)/documents/userRoles/$(uid)).data; }
-    function isAdmin() { return signedIn() && roleDoc(request.auth.uid).role == 'admin'; }
-    function isAgent(uid) { return signedIn() && request.auth.uid == uid && roleDoc(uid).role == 'agent'; }
+    function roleExists(uid) {
+      return exists(/databases/$(database)/documents/userRoles/$(uid));
+    }
+    function roleDoc(uid) {
+      return get(/databases/$(database)/documents/userRoles/$(uid)).data;
+    }
+    function isAdmin() {
+      return signedIn() && roleExists(request.auth.uid)
+        && (roleDoc(request.auth.uid).role == 'admin'
+          || roleDoc(request.auth.uid).role == 'أدمن'
+          || roleDoc(request.auth.uid).role == 'مدير رئيسي');
+    }
+    function isAgent(uid) {
+      return signedIn() && request.auth.uid == uid && roleExists(uid)
+        && (roleDoc(uid).role == 'agent' || roleDoc(uid).role == 'وكيل');
+    }
 
     match /userRoles/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
