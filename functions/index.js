@@ -77,7 +77,31 @@ exports.manageUser = onCall(async (data, context) => {
     try {
       user = await auth.getUserByEmail(email);
     } catch {
-      throw new HttpsError('not-found', 'لم يتم العثور على حساب Firebase لهذا المستخدم.');
+      if (!account.password) {
+        throw new HttpsError('not-found', 'هذا الحساب غير مفعّل في Firebase. أدخل كلمة مرور جديدة لتفعيله.');
+      }
+      try {
+        user = await auth.createUser({
+          email: `${account.username}@${process.env.GCLOUD_PROJECT}.firebaseapp.com`,
+          password: account.password,
+          displayName: account.name
+        });
+        await db.collection('userRoles').doc(user.uid).set({
+          role: account.role,
+          username: account.username,
+          displayName: account.name,
+          agentName: account.role === 'agent' ? account.name : null,
+          agentCode: account.role === 'agent' ? String(data.code || '').trim() : null,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        return { uid: user.uid, username: account.username, role: account.role, provisioned: true };
+      } catch (error) {
+        if (error.code === 'auth/email-already-exists') {
+          throw new HttpsError('already-exists', 'اسم المستخدم الجديد مستخدم مسبقاً.');
+        }
+        throw new HttpsError('internal', 'تعذر تفعيل الحساب القديم.');
+      }
     }
     const updates = { displayName: account.name };
     if (account.password) updates.password = account.password;
