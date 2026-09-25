@@ -93,6 +93,28 @@ async function manageUser(data, callerUid) {
     }
   }
 
+  if (action === 'provision') {
+    const password = String(data.password || '');
+    const accounts = Array.isArray(data.accounts) ? data.accounts : [];
+    if (password.length < 6) fail(400, 'كلمة المرور المؤقتة يجب أن تتكون من 6 أحرف على الأقل.');
+    if (!accounts.length || accounts.length > 100) fail(400, 'لا توجد حسابات صالحة للتفعيل.');
+    const results = [];
+    for (const item of accounts) {
+      const account = validateAccount({...item, password}, true);
+      const email = `${account.username}@${projectId}.firebaseapp.com`;
+      try {
+        await auth.getUserByEmail(email);
+        results.push({username: account.username, status: 'exists'});
+      } catch (error) {
+        if (error.code !== 'auth/user-not-found') throw error;
+        const user = await auth.createUser({email, password, displayName: account.name});
+        await db.collection('userRoles').doc(user.uid).set(roleData(account, item, true));
+        results.push({username: account.username, status: 'created'});
+      }
+    }
+    return {results};
+  }
+
   if (action === 'update') {
     const oldUsername = normalizeUsername(data.oldUsername);
     const account = validateAccount(data, false);
