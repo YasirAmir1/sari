@@ -124,7 +124,7 @@
   async function saveAdmin(data) {
     for (const collection of COLLECTIONS) await writeRows(collection, data[collection], null);
     await writePricing(data.pricing, null);
-    await syncAdminSnapshot(data);
+    syncAdminSnapshot(data).catch(error => showBackgroundCloudError(error));
   }
 
   function detach() { listeners.forEach(unsub => unsub()); listeners=[]; }
@@ -223,7 +223,10 @@
       if(!ready||!profile)return;
       if(profile.role!=='admin')return;
       saveQueue=saveQueue.then(()=>saveAdmin(clone(data)));
-      return saveQueue.catch(error=>{showCloudError(error);throw error});
+      return saveQueue.catch(error=>{
+        showCloudError(error, 'حفظ بيانات المركز');
+        throw error;
+      });
     },
     async submitSale(sale){
       if(!profile||profile.role!=='agent')throw new Error('حساب الوكيل غير مصادق عليه.');
