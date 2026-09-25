@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function roleDoc(uid) { return get(/databases/$(database)/documents/userRoles/$(uid)).data; }
+    function isAdmin() { return signedIn() && roleDoc(request.auth.uid).role == 'admin'; }
+    function isAgent(uid) { return signedIn() && request.auth.uid == uid && roleDoc(uid).role == 'agent'; }
+
+    match /userRoles/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      // Create initial role documents in Firebase Console. The app cannot
+      // grant itself or another user admin privileges.
+      allow write: if isAdmin();
+    }
+
+    match /appData/{path=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /agentData/{uid}/{path=**} {
+      allow read: if isAdmin() || isAgent(uid);
+      allow write: if isAdmin();
+    }
+
+    match /agentSubmissions/{uid}/items/{itemId} {
+      allow create: if isAgent(uid)
+        && request.resource.data.submittedBy == uid
+        && request.resource.data.sale is map
+        && request.resource.data.sale.seller == roleDoc(uid).agentName;
+      allow get, list: if isAdmin() || isAgent(uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
