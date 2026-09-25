@@ -96,29 +96,40 @@ async function manageUser(data, callerUid) {
   if (action === 'update') {
     const oldUsername = normalizeUsername(data.oldUsername);
     const account = validateAccount(data, false);
-    if (!oldUsername) fail(400, 'اسم المستخدم القديم مطلوب.');
-    const oldEmail = `${oldUsername}@${projectId}.firebaseapp.com`;
+    const oldEmail = oldUsername ? `${oldUsername}@${projectId}.firebaseapp.com` : '';
     let user;
     try {
+      if (!oldEmail) fail(400, 'اسم المستخدم القديم مطلوب.');
       user = await auth.getUserByEmail(oldEmail);
     } catch (error) {
       if (error.code !== 'auth/user-not-found') throw error;
       if (!account.password) fail(404, 'هذا الحساب غير مفعّل. أدخل كلمة مرور جديدة لتفعيله.');
-      user = await auth.createUser({
-        email: `${account.username}@${projectId}.firebaseapp.com`,
-        password: account.password,
-        displayName: account.name
-      });
-      await db.collection('userRoles').doc(user.uid).set(roleData(account, data, true));
-      return { uid: user.uid, username: account.username, role: account.role, provisioned: true };
+      try {
+        user = await auth.createUser({
+          email: `${account.username}@${projectId}.firebaseapp.com`,
+          password: account.password,
+          displayName: account.name
+        });
+        await db.collection('userRoles').doc(user.uid).set(roleData(account, data, true));
+        return { uid: user.uid, username: account.username, role: account.role, provisioned: true };
+      } catch (createError) {
+        if (createError.code === 'auth/email-already-exists') fail(409, 'اسم المستخدم الجديد مستخدم مسبقاً.');
+        throw createError;
+      }
     }
     const updates = { displayName: account.name };
     if (account.password) updates.password = account.password;
     if (account.username !== oldUsername) {
       updates.email = `${account.username}@${projectId}.firebaseapp.com`;
     }
-    await auth.updateUser(user.uid, updates);
-    await db.collection('userRoles').doc(user.uid).set(roleData(account, data, false), { merge: true });
+    try {
+      await auth.updateUser(user.uid, updates);
+      await db.collection('userRoles').doc(user.uid).set(roleData(account, data, false), { merge: true });
+    } catch (error) {
+      if (error.code === 'auth/email-already-exists') fail(409, 'اسم المستخدم الجديد مستخدم مسبقاً.');
+      if (error.code === 'auth/invalid-password') fail(400, 'كلمة المرور الجديدة غير صالحة.');
+      throw error;
+    }
     return { uid: user.uid, username: account.username, role: account.role };
   }
 
