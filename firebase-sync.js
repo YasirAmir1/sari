@@ -147,26 +147,6 @@
       cache['admin:pricing'] = JSON.stringify(state.pricing || {});
       rebuild();
     }, showCloudError));
-    db.collection('userRoles').get().then(snapshot => {
-      snapshot.docs
-        .filter(doc => ['agent', 'وكيل'].includes(doc.data().role))
-        .forEach(doc => {
-          listeners.push(db.collection('agentSubmissions').doc(doc.id).collection('items').onSnapshot(submissions => {
-            if (submissions.metadata.hasPendingWrites) return;
-            let changed = false;
-            for (const submission of submissions.docs) {
-              const sale = submission.data().sale;
-              if (!sale?.id || state.sales.some(item => String(item.id) === String(sale.id))) continue;
-              state.sales.push({...sale, agentUid: doc.id});
-              changed = true;
-            }
-            if (changed) {
-              publish(state);
-              saveAdmin(state).catch(showCloudError);
-            }
-          }, showCloudError));
-        });
-    }).catch(showCloudError);
   }
 
   function watchAgent(uid) {
@@ -184,14 +164,6 @@
       if (snapshot.metadata.hasPendingWrites) return;
       state.pricing = snapshot.exists ? snapshot.data().pricing : undefined;
       cache[`${uid}:pricing`] = JSON.stringify(state.pricing || {});
-      rebuild();
-    }, showCloudError));
-    listeners.push(db.collection('agentSubmissions').doc(uid).collection('items').onSnapshot(snapshot => {
-      if (snapshot.metadata.hasPendingWrites) return;
-      for (const doc of snapshot.docs) {
-        const sale = doc.data().sale;
-        if (sale?.id && !state.sales.some(item => String(item.id) === String(sale.id))) state.sales.push(sale);
-      }
       rebuild();
     }, showCloudError));
   }
