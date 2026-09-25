@@ -3,12 +3,14 @@
   const COLLECTIONS = ['agents', 'sales', 'debts', 'users', 'codes', 'agentSettlements'];
   const ready = Boolean(config?.apiKey && config?.projectId);
   let auth, db, profile = null, currentUser = null, dataCallback = null;
+  let functions;
   let listeners = [], cache = Object.create(null), saveQueue = Promise.resolve(), activationPromise = null;
 
   if (ready && window.firebase) {
     const app = firebase.initializeApp(config);
     auth = firebase.auth(app);
     db = firebase.firestore(app);
+    functions = firebase.functions(app);
     auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(console.error);
   }
 
@@ -223,6 +225,11 @@
       if(!profile||profile.role!=='agent')throw new Error('حساب الوكيل غير مصادق عليه.');
       const ref=db.collection('agentSubmissions').doc(currentUser.uid).collection('items').doc(String(sale.id));
       await ref.set({submittedBy:currentUser.uid,sale:clone(sale),createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    },
+    async manageUser(payload){
+      if(!ready||!profile||profile.role!=='admin') throw new Error('هذه العملية متاحة للمدير فقط.');
+      if(!functions) throw new Error('خدمة إدارة الحسابات غير متاحة.');
+      return (await functions.httpsCallable('manageUser')(payload)).data;
     },
     start(onData,onSignedOut){
       dataCallback=onData;

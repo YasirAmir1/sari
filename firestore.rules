@@ -10,9 +10,9 @@ service cloud.firestore {
     match /userRoles/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
-      // Create initial role documents in Firebase Console. The app cannot
-      // grant itself or another user admin privileges.
-      allow write: if isAdmin();
+      // Role documents are created and changed by the Admin SDK function.
+      // Bootstrap the first administrator manually in Firebase Console.
+      allow write: if false;
     }
 
     match /appData/{path=**} {
