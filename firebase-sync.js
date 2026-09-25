@@ -26,6 +26,19 @@
     return out;
   }
 
+  function includeSignedInAccount(value, role) {
+    const users = value.users || (value.users = []);
+    if (users.some(user => user.username === role.username)) return false;
+    users.push({
+      id: `firebase-${role.uid}`,
+      name: role.displayName || role.agentName || role.username,
+      username: role.username,
+      code: role.agentCode || '',
+      role: role.role === 'agent' ? 'وكيل' : 'مدير رئيسي'
+    });
+    return true;
+  }
+
   function remember(data, uid) {
     for (const key of COLLECTIONS) {
       cache[`${uid || 'admin'}:${key}`] = new Map((data[key] || []).map(row => [rowId(row), JSON.stringify(row)]));
@@ -184,6 +197,7 @@
       const meta=await db.collection('appData').doc('meta').get();
       if(!meta.exists) { await saveAdmin(window.sariLocalData()); value=await readData(null); }
       else value=existing;
+      if (includeSignedInAccount(value, profile)) await saveAdmin(value);
       remember(value,null); publish(value); watchAdmin();
     } else {
       value=await readData(user.uid); remember(value,user.uid); publish(value); watchAgent(user.uid);
