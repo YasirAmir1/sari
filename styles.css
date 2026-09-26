@@ -181,7 +181,7 @@ button:focus-visible,.button:focus-visible,a:focus-visible,input:focus-visible,s
   .toast{width:max-content;max-width:calc(100vw - 28px);text-align:center;bottom:calc(14px + env(safe-area-inset-bottom))}
 }
 @media(max-width:480px){
-  .top-actions time{display:none}
+  .top-actions time{display:none  }
   .heading{align-items:flex-start}
   .heading h1{font-size:19px}
   .heading p{max-width:220px}
@@ -214,6 +214,20 @@ button:focus-visible,.button:focus-visible,a:focus-visible,input:focus-visible,s
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 .agent-mode .agent-dashboard-stats{grid-template-columns:repeat(6,minmax(0,1fr))}
 .agent-mode .agent-sale-actions .button{background:#245b89;color:#fff}
+.subscriber-table{min-width:620px}
+.subscriber-row,.subscriber-actions{display:flex;align-items:center;gap:8px}
+.subscriber-row{justify-content:space-between;min-width:330px}
+.subscriber-actions{flex:0 0 auto}
+.subscriber-actions .user-edit,.subscriber-delete{min-height:30px;padding:5px 10px;border:1px solid var(--line);border-radius:6px;font-size:10px}
+.subscriber-delete{background:#fff0ed;color:#bd6a5c}
+.subscriber-delete:hover{background:#ffe2dc}
+body.dark .subscriber-delete{background:#512f30;border-color:#714345;color:#ffd0c8}
+body.dark .subscriber-delete:hover{background:#63383a}
+@media(max-width:640px){
+  .subscriber-table{min-width:560px}
+  .subscriber-row{min-width:310px;gap:6px}
+  .subscriber-actions{gap:5px}
+}
 .agent-mode .agent-sale-actions .button:hover{background:#1e4d73}
 .agent-mode .agent-sale-actions{display:grid!important;visibility:visible!important;grid-template-columns:repeat(3,minmax(120px,132px));max-width:none;flex:0 0 auto;gap:10px}
 .agent-mode .agent-sale-actions .button{display:inline-flex!important;visibility:visible!important;opacity:1!important;width:100%;min-width:120px;max-width:132px;min-height:42px;padding-inline:8px;background-color:#245b89!important;border:1px solid #527b9b;color:#fff!important}
