@@ -3,7 +3,7 @@
   const COLLECTIONS = ['agents', 'sales', 'debts', 'users', 'codes', 'agentSettlements'];
   const ready = Boolean(config?.apiKey && config?.projectId);
   let auth, db, profile = null, currentUser = null, dataCallback = null;
-  let listeners = [], cache = Object.create(null), saveQueue = Promise.resolve(), activationPromise = null;
+  let listeners = [], submissionListeners = new Map(), pendingSubmissions = new Map(), cache = Object.create(null), saveQueue = Promise.resolve(), activationPromise = null;
 
   if (ready && window.firebase) {
     const app = firebase.initializeApp(config);
@@ -127,12 +127,38 @@
     syncAdminSnapshot(data).catch(error => showBackgroundCloudError(error));
   }
 
-  function detach() { listeners.forEach(unsub => unsub()); listeners=[]; }
+  function detach() { listeners.forEach(unsub => unsub()); listeners=[]; submissionListeners.forEach(unsub=>unsub()); submissionListeners.clear(); pendingSubmissions.clear(); }
   function publish(value) { if (dataCallback) dataCallback(normalizeData(clone(value))); }
+
+  function publishAdmin(state) {
+    const sales=[...(state.sales||[])], ids=new Set(sales.map(s=>String(s.id)));
+    pendingSubmissions.forEach(({sale})=>{if(!ids.has(String(sale.id))){sales.push(sale);ids.add(String(sale.id))}});
+    publish({...state,sales});
+  }
+
+  function watchAgentSubmissions(state) {
+    listeners.push(db.collection('userRoles').onSnapshot(snapshot=>{
+      const agents=new Map(snapshot.docs.filter(doc=>['agent','وكيل'].includes(doc.data().role)).map(doc=>[doc.id,doc.data()]));
+      submissionListeners.forEach((unsubscribe,uid)=>{if(!agents.has(uid)){unsubscribe();submissionListeners.delete(uid);for(const [key,item] of pendingSubmissions)if(item.uid===uid)pendingSubmissions.delete(key)}});
+      agents.forEach((role,uid)=>{
+        if(submissionListeners.has(uid))return;
+        const unsubscribe=db.collection('agentSubmissions').doc(uid).collection('items').onSnapshot(items=>{
+          for(const [key,item] of pendingSubmissions)if(item.uid===uid)pendingSubmissions.delete(key);
+          items.docs.forEach(doc=>{
+            const sale=doc.data().sale;
+            if(sale)pendingSubmissions.set(`${uid}:${doc.id}`,{uid,sale:{...sale,agentRequestPending:true}});
+          });
+          publishAdmin(state);
+        },showBackgroundCloudError);
+        submissionListeners.set(uid,unsubscribe);
+      });
+      publishAdmin(state);
+    },showBackgroundCloudError));
+  }
 
   function watchAdmin() {
     const state = normalizeData({});
-    const rebuild = () => publish(state);
+    const rebuild = () => publishAdmin(state);
     for (const collection of COLLECTIONS) {
       listeners.push(paths(collection).onSnapshot(snapshot => {
         if (snapshot.metadata.hasPendingWrites) return;
@@ -147,6 +173,7 @@
       cache['admin:pricing'] = JSON.stringify(state.pricing || {});
       rebuild();
     }, showBackgroundCloudError));
+    watchAgentSubmissions(state);
   }
 
   function watchAgent(uid) {
@@ -232,6 +259,14 @@
       if(!profile||profile.role!=='agent')throw new Error('حساب الوكيل غير مصادق عليه.');
       const ref=db.collection('agentSubmissions').doc(currentUser.uid).collection('items').doc(String(sale.id));
       await ref.set({submittedBy:currentUser.uid,sale:clone(sale),createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    },
+    async resolveSaleSubmission(saleId,seller){
+      if(!profile||profile.role!=='admin')throw new Error('اعتماد طلبات البيع متاح للمدير فقط.');
+      const entry=[...pendingSubmissions.entries()].find(([,item])=>String(item.sale.id)===String(saleId)&&(!seller||item.sale.seller===seller));
+      if(!entry)return;
+      const [key,{uid}]=entry;
+      await db.collection('agentSubmissions').doc(uid).collection('items').doc(String(saleId)).delete();
+      pendingSubmissions.delete(key);
     },
     async manageUser(payload){
       if(!ready||!profile||!['admin','أدمن','مدير رئيسي'].includes(profile.role)) throw new Error('هذه العملية متاحة للمدير فقط.');

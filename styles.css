@@ -212,3 +212,14 @@ button:focus-visible,.button:focus-visible,a:focus-visible,input:focus-visible,s
   .code-number-field{width:100%}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+.agent-mode .agent-dashboard-stats{grid-template-columns:repeat(6,minmax(0,1fr))}
+.agent-mode .agent-sale-actions .button{background:#245b89;color:#fff}
+.agent-mode .agent-sale-actions .button:hover{background:#1e4d73}
+.agent-mode .agent-sale-actions{display:grid!important;visibility:visible!important;grid-template-columns:repeat(3,minmax(120px,132px));max-width:none;flex:0 0 auto;gap:10px}
+.agent-mode .agent-sale-actions .button{display:inline-flex!important;visibility:visible!important;opacity:1!important;width:100%;min-width:120px;max-width:132px;min-height:42px;padding-inline:8px;background-color:#245b89!important;border:1px solid #527b9b;color:#fff!important}
+@media(max-width:1050px){.agent-mode .agent-dashboard-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.agent-mode .agent-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.agent-mode .agent-sale-actions{max-width:100%;grid-template-columns:repeat(2,minmax(120px,1fr))}.agent-mode .agent-sale-actions .button{width:100%;min-width:0;max-width:none}}
+@media(max-width:480px){.agent-mode .agent-sale-actions{grid-template-columns:1fr}}
+.brand-icon{object-fit:cover;background:#fff;border:0;border-radius:10px}
+.login-mark{overflow:hidden;background:#fff}
+.login-mark img{display:block;width:100%;height:100%;object-fit:cover}
