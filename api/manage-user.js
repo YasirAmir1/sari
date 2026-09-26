@@ -76,7 +76,12 @@ async function manageUser(data, callerUid) {
   const auth = firebaseAdmin.auth();
   const db = firebaseAdmin.firestore();
   const callerRole = await db.collection('userRoles').doc(callerUid).get();
-  if (!callerRole.exists || callerRole.data().username !== 'abdsari') {
+  const caller = callerRole.data() || {};
+  const isCenterManager = caller.role === 'admin'
+    && (caller.username === 'abdsari'
+      || caller.username === 'admin'
+      || caller.displayName === 'مدير المركز');
+  if (!callerRole.exists || !isCenterManager) {
     fail(403, 'تغيير كلمات المرور والرموز السرية متاح لمدير المركز فقط.');
   }
   const action = String(data.action || '');
