@@ -106,6 +106,7 @@ body.dark .logout-dialog{background:#1e4d73;border-color:#315c7d;color:#e5eef5}b
 .sale-qr-dialog{width:min(450px,calc(100% - 28px));max-height:calc(100dvh - 24px);overflow:auto}.sale-qr-dialog .scanner-box{width:100%;min-width:0}.sale-qr-dialog .qr-preview{min-height:280px}
 
 .sales-record-table{min-width:1280px}.sale-qr-dialog[open]{position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);margin:0}
+.debt-actions{display:flex;align-items:center;gap:5px}.debt-actions .button{padding:5px 8px;font-size:9px}.debt-actions .user-edit{white-space:nowrap}
 
 .agent-private-tabs{display:flex;gap:8px;padding:0 0 14px}.agent-private-tabs .sales-filter{min-width:120px}.agent-mode .sale-device-number{font-size:10px}
 .heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.heading-actions .button{box-sizing:border-box;width:190px;height:42px;min-height:42px;max-width:100%;padding:8px 10px;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;line-height:1}
