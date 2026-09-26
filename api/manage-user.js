@@ -77,7 +77,7 @@ async function manageUser(data, callerUid) {
   const db = firebaseAdmin.firestore();
   const callerRole = await db.collection('userRoles').doc(callerUid).get();
   const caller = callerRole.data() || {};
-  const isCenterManager = caller.role === 'admin'
+  const isCenterManager = ['admin', 'أدمن', 'مدير رئيسي'].includes(caller.role)
     && (caller.username === 'abdsari'
       || caller.username === 'admin'
       || caller.displayName === 'مدير المركز');
