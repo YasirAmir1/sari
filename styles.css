@@ -219,14 +219,22 @@ button:focus-visible,.button:focus-visible,a:focus-visible,input:focus-visible,s
 .subscriber-row{justify-content:space-between;min-width:330px}
 .subscriber-actions{flex:0 0 auto}
 .subscriber-actions .user-edit,.subscriber-delete{min-height:30px;padding:5px 10px;border:1px solid var(--line);border-radius:6px;font-size:10px}
+.subscriber-table{min-width:1050px}
+.subscriber-status{display:inline-block;padding:4px 9px;border-radius:14px;font-size:10px;white-space:nowrap}
+.subscriber-status.active{background:#e6f4eb;color:#26814a}
+.subscriber-status.inactive{background:#fff0ed;color:#bd6a5c}
 .subscriber-delete{background:#fff0ed;color:#bd6a5c}
 .subscriber-delete:hover{background:#ffe2dc}
+body.dark .subscriber-status.active{background:#214a37;color:#a9e3bd}
+body.dark .subscriber-status.inactive{background:#512f30;color:#ffd0c8}
 body.dark .subscriber-delete{background:#512f30;border-color:#714345;color:#ffd0c8}
 body.dark .subscriber-delete:hover{background:#63383a}
 @media(max-width:640px){
-  .subscriber-table{min-width:560px}
+  .subscriber-table{min-width:1050px}
   .subscriber-row{min-width:310px;gap:6px}
   .subscriber-actions{gap:5px}
+  .subscriber-owner-filters,.subscriber-status-filters{overflow-x:auto;flex-wrap:nowrap}
+  .subscriber-owner-filters .sales-filter,.subscriber-status-filters .sales-filter{flex:0 0 auto}
 }
 .agent-mode .agent-sale-actions .button:hover{background:#1e4d73}
 .agent-mode .agent-sale-actions{display:grid!important;visibility:visible!important;grid-template-columns:repeat(3,minmax(120px,132px));max-width:none;flex:0 0 auto;gap:10px}
