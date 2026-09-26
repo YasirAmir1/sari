@@ -234,7 +234,7 @@
       await ref.set({submittedBy:currentUser.uid,sale:clone(sale),createdAt:firebase.firestore.FieldValue.serverTimestamp()});
     },
     async manageUser(payload){
-      if(!ready||!profile||profile.role!=='admin') throw new Error('هذه العملية متاحة للمدير فقط.');
+      if(!ready||!profile||!['admin','أدمن','مدير رئيسي'].includes(profile.role)) throw new Error('هذه العملية متاحة للمدير فقط.');
       const token=await currentUser.getIdToken();
       const response=await fetch('/api/manage-user',{
         method:'POST',
