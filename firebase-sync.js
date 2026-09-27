@@ -16,8 +16,8 @@
   const roleRef = uid => db.collection('userRoles').doc(uid);
   const rowId = row => String(row.id ?? row.code ?? row.value ?? row.username ?? row.name);
   const paths = (collection, uid) => uid
-    ? db.collection('agentData').doc(uid).collection(collection)
-    : db.collection('appData').doc(collection).collection('records');
+      ? db.collection('agentData').doc(uid).collection(collection)
+      : db.collection('appData').doc(collection).collection('records');
 
   function normalizeData(value) {
     const out = value || {};
@@ -85,7 +85,7 @@
         codes.push({value:sale.deviceNo,customerName:sale.name,status:'مباع',assignedAgentUid:role.uid,assignedAgentCode:code});
       }
     }
-    const user = (allData.users || []).find(u => u.code === code || u.name === name) || {name,code,username:role.username,role:'\u0648\u0643\u064a\u0644'};
+    const user = (allData.users || []).find(u => u.code === code || u.name === name) || {name,code,username:role.username,role:'وكيل'};
     return normalizeData({
       agents: agent.id ? [agent] : [], sales,
       debts: (allData.debts || []).filter(d => d.source === name || d.agentUid === role.uid),
@@ -138,7 +138,7 @@
 
   function watchAgentSubmissions(state) {
     listeners.push(db.collection('userRoles').onSnapshot(snapshot=>{
-      const agents=new Map(snapshot.docs.filter(doc=>['agent','وكيل'].includes(doc.data().role)).map(doc=>[doc.id,doc.data()]));
+      const agents=new Map(snapshot.docs.filter(doc=>['agent', 'وكيل'].includes(doc.data().role)).map(doc=>[doc.id,doc.data()]));
       submissionListeners.forEach((unsubscribe,uid)=>{if(!agents.has(uid)){unsubscribe();submissionListeners.delete(uid);for(const [key,item] of pendingSubmissions)if(item.uid===uid)pendingSubmissions.delete(key)}});
       agents.forEach((role,uid)=>{
         if(submissionListeners.has(uid))return;
@@ -227,8 +227,8 @@
     console.error('Firebase:',error);
     if (error?.code === 'permission-denied' && !notifyUser) return;
     const message = error?.code === 'permission-denied'
-      ? `رفضت قواعد Firebase العملية: ${operation}. تأكد من وجود userRoles للحساب.`
-      : 'تعذر مزامنة Firebase؛ تحقق من الاتصال وإعدادات المشروع.';
+        ? `رفضت قواعد Firebase العملية: ${operation}. تأكد من وجود userRoles للحساب.`
+        : 'تعذر مزامنة Firebase؛ تحقق من الاتصال وإعدادات المشروع.';
     if(window.notify && message !== lastCloudError) {
       lastCloudError = message;
       notify(message);
@@ -285,7 +285,14 @@
       if(!ready){onSignedOut?.();return}
       auth.onAuthStateChanged(async user=>{
         if(!user){detach();profile=null;currentUser=null;onSignedOut?.();return}
-        try{await activate(user)}catch(error){showCloudError(error);await auth.signOut();onSignedOut?.()}
+        try {
+          await activate(user);
+        } catch(error) {
+          showCloudError(error);
+          // إذا فشلت عملية التفعيل (مثل مشكلة في userRoles)، نقوم بتسجيل الخروج بأمان لتفادي تعليق الجلسة وعدم السماح بالدخول الخاطئ
+          await auth.signOut();
+          onSignedOut?.();
+        }
       });
     }
   };
