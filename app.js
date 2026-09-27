@@ -1,4 +1,7 @@
-const STORE='sari-app-v1';
+if (typeof STORE === 'undefined') {
+  var STORE = 'sari-app-v1';
+}
+
 const defaultPricing={agent:{device:45000,subscriptions:{1:18000,2:36000,3:54000}},headquarters:{device:50000,subscriptions:{1:25000,2:50000,3:75000}}};
 const seed={agents:[{id:1,name:'أحمد الجبوري',phone:'0770 123 4567',code:'AG-001',price:18000},{id:2,name:'علي الكرخي',phone:'0781 456 7890',code:'AG-002',price:18500},{id:3,name:'حسن العبيدي',phone:'0750 321 9876',code:'AG-003',price:17500}],sales:[{id:1,name:'محمد كريم',type:'اشتراك جديد',seller:'المركز الرئيسي',amount:25000,paid:25000,date:today(),code:'SR-1001'},{id:2,name:'سعد ناصر',type:'جهاز جديد',seller:'أحمد الجبوري',amount:45000,paid:30000,date:today(),code:'SR-1002'},{id:3,name:'ضياء علي',type:'تجديد اشتراك',seller:'علي الكرخي',amount:18500,paid:18500,date:day(-1),code:'SR-1003'},{id:4,name:'قاسم فاضل',type:'جهاز جديد',seller:'المركز الرئيسي',amount:50000,paid:20000,date:day(-1),code:'SR-1004'},{id:5,name:'أوس مهدي',type:'اشتراك جديد',seller:'حسن العبيدي',amount:17500,paid:17500,date:day(-2),code:'SR-1005'}],debts:[{id:2,name:'سعد ناصر',phone:'0780 123 1122',source:'أحمد الجبوري',total:45000,paid:30000,due:day(4),note:'دفعة متبقية'},{id:4,name:'قاسم فاضل',phone:'0771 500 2211',source:'المركز الرئيسي',total:50000,paid:20000,due:day(2),note:'جهاز جديد'}],users:[{id:1,name:'مدير المركز',username:'admin',code:'SAR-ADMIN-01',role:'مدير رئيسي'},{id:2,name:'مشرف المبيعات',username:'sales-admin',code:'SAR-ADMIN-02',role:'أدمن'},{id:3,name:'مدير الحسابات',username:'accounts-admin',code:'SAR-ADMIN-03',role:'أدمن'},{id:4,name:'أحمد الجبوري',username:'ahmad.j',code:'AG-001',role:'وكيل'},{id:5,name:'علي الكرخي',username:'ali.k',code:'AG-002',role:'وكيل'},{id:6,name:'حسن العبيدي',username:'hasan.o',code:'AG-003',role:'وكيل'}]};
 
@@ -14,11 +17,11 @@ function updateSignedInUser(profile){
   $('#sidebar-user-name')?.replaceChildren(document.createTextNode(name));
   $('#sidebar-user-role')?.replaceChildren(document.createTextNode(role));
   $('#sidebar-user-avatar')?.replaceChildren(document.createTextNode(firstName));
-  let badge=$('.admin-avatar.mini');
-  if(badge){
-    badge.replaceChildren(document.createTextNode(account));
-    badge.title=account;
-    badge.setAttribute('aria-label',account);
+  let badgeEl=$('.admin-avatar.mini');
+  if(badgeEl){
+    badgeEl.replaceChildren(document.createTextNode(account));
+    badgeEl.title=account;
+    badgeEl.setAttribute('aria-label',account);
   }
 }
 
@@ -124,7 +127,6 @@ function notify(s){
   notify.t=setTimeout(()=>t.classList.remove('show'),2400);
 }
 
-// دالة badge آمنة تماماً ولا تسبب أي أخطاء عند عدم توفر العناصر في الواجهة
 function badge(){
   let salesBadge = $('#sales-badge');
   let debtsBadge = $('#debts-badge');
