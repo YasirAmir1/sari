@@ -6,5 +6,5 @@ while ($true) {
         git push origin main
         Write-Host "Changes pushed to GitHub successfully!" -ForegroundColor Green
     }
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 50
 }
