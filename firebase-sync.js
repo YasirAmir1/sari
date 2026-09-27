@@ -1,303 +1,162 @@
-(function () {
-  const config = window.SARI_FIREBASE_CONFIG;
-  const COLLECTIONS = ['agents', 'sales', 'debts', 'users', 'codes', 'agentSettlements'];
-  const ready = Boolean(config?.apiKey && config?.projectId);
-  let auth, db, profile = null, currentUser = null, dataCallback = null;
-  let listeners = [], submissionListeners = new Map(), pendingSubmissions = new Map(), cache = Object.create(null), saveQueue = Promise.resolve(), activationPromise = null;
+const STORE='sari-app-v1';
+const defaultPricing={agent:{device:45000,subscriptions:{1:18000,2:36000,3:54000}},headquarters:{device:50000,subscriptions:{1:25000,2:50000,3:75000}}};
+const seed={agents:[{id:1,name:'أحمد الجبوري',phone:'0770 123 4567',code:'AG-001',price:18000},{id:2,name:'علي الكرخي',phone:'0781 456 7890',code:'AG-002',price:18500},{id:3,name:'حسن العبيدي',phone:'0750 321 9876',code:'AG-003',price:17500}],sales:[{id:1,name:'محمد كريم',type:'اشتراك جديد',seller:'المركز الرئيسي',amount:25000,paid:25000,date:today(),code:'SR-1001'},{id:2,name:'سعد ناصر',type:'جهاز جديد',seller:'أحمد الجبوري',amount:45000,paid:30000,date:today(),code:'SR-1002'},{id:3,name:'ضياء علي',type:'تجديد اشتراك',seller:'علي الكرخي',amount:18500,paid:18500,date:day(-1),code:'SR-1003'},{id:4,name:'قاسم فاضل',type:'جهاز جديد',seller:'المركز الرئيسي',amount:50000,paid:20000,date:day(-1),code:'SR-1004'},{id:5,name:'أوس مهدي',type:'اشتراك جديد',seller:'حسن العبيدي',amount:17500,paid:17500,date:day(-2),code:'SR-1005'}],debts:[{id:2,name:'سعد ناصر',phone:'0780 123 1122',source:'أحمد الجبوري',total:45000,paid:30000,due:day(4),note:'دفعة متبقية'},{id:4,name:'قاسم فاضل',phone:'0771 500 2211',source:'المركز الرئيسي',total:50000,paid:20000,due:day(2),note:'جهاز جديد'}],users:[{id:1,name:'مدير المركز',username:'admin',code:'SAR-ADMIN-01',role:'مدير رئيسي'},{id:2,name:'مشرف المبيعات',username:'sales-admin',code:'SAR-ADMIN-02',role:'أدمن'},{id:3,name:'مدير الحسابات',username:'accounts-admin',code:'SAR-ADMIN-03',role:'أدمن'},{id:4,name:'أحمد الجبوري',username:'ahmad.j',code:'AG-001',role:'وكيل'},{id:5,name:'علي الكرخي',username:'ali.k',code:'AG-002',role:'وكيل'},{id:6,name:'حسن العبيدي',username:'hasan.o',code:'AG-003',role:'وكيل'}]};
 
-  if (ready && window.firebase) {
-    const app = firebase.initializeApp(config);
-    auth = firebase.auth(app);
-    db = firebase.firestore(app);
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(console.error);
+function today(){return new Date().toISOString().slice(0,10)}
+function day(n){let d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)}
+function accountBadge(profile){if(!profile)return'الحساب الحالي';let username=profile.username||'admin',identity=profile.role==='agent'?(profile.agentName||profile.displayName||username):'الرئيسية';return `${username} · ${identity}`}
+
+// دالة badge آمنة تماماً ومتاحة في نطاق عام لمنع أخطاء Hoisting
+function badge(){
+  let salesBadge = document.querySelector('#sales-badge');
+  let debtsBadge = document.querySelector('#debts-badge');
+  let todayEl = document.querySelector('#today');
+
+  if(salesBadge) salesBadge.textContent = data?.sales?.length || 0;
+  if(debtsBadge) debtsBadge.textContent = data?.debts?.length || 0;
+
+  if(todayEl) {
+    let now = new Date(),
+        dateText = new Intl.DateTimeFormat('ar-IQ-u-nu-latn',{weekday:'long',day:'numeric',month:'long'}).format(now),
+        timeText = new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit'}).format(now);
+    todayEl.textContent = `${dateText} · ${timeText}`;
+  }
+}
+
+function updateSignedInUser(profile){
+  let name=profile?.displayName||profile?.agentName||profile?.username||'الحساب الحالي',
+      firstName=String(name).trim().split(/\s+/)[0]||name,
+      role=profile?.role==='agent'?'وكيل':'مدير',
+      account=accountBadge(profile);
+
+  let nameEl = document.getElementById('sidebar-user-name');
+  if(nameEl) nameEl.replaceChildren(document.createTextNode(name));
+
+  let roleEl = document.getElementById('sidebar-user-role');
+  if(roleEl) roleEl.replaceChildren(document.createTextNode(role));
+
+  let avatarEl = document.getElementById('sidebar-user-avatar');
+  if(avatarEl) avatarEl.replaceChildren(document.createTextNode(firstName));
+
+  let badgeEl = document.querySelector('.admin-avatar.mini');
+  if(badgeEl){
+    badgeEl.replaceChildren(document.createTextNode(account));
+    badgeEl.title=account;
+    badgeEl.setAttribute('aria-label',account);
+  }
+}
+
+let data;
+try{
+  data=JSON.parse(localStorage.getItem(STORE))||structuredClone(seed);
+}catch{
+  data=structuredClone(seed);
+}
+
+const salesAdmin=data.users?.find(u=>u.username==='admin');
+if(salesAdmin&&salesAdmin.name!=='مدير مبيعات'){
+  salesAdmin.name='مدير مبيعات';
+  localStorage.setItem(STORE,JSON.stringify(data));
+}
+
+data.codes ||= [];
+data.agentSettlements ||= [];
+data.pricing ||= structuredClone(defaultPricing);
+data.pricing.agent ||= structuredClone(defaultPricing.agent);
+data.pricing.headquarters ||= structuredClone(defaultPricing.headquarters);
+
+for(const group of ['agent','headquarters']) {
+  data.pricing[group].subscriptions ||= structuredClone(defaultPricing[group].subscriptions);
+}
+
+for(const user of data.users.filter(u=>u.role==='وكيل')){
+  if(!data.agents.some(a=>a.code===user.code||a.name===user.name)){
+    data.agents.push({id:user.id,name:user.name,phone:user.phone||'—',code:user.code,price:Number(data.pricing.agent.device)||0});
+  }
+}
+
+let view='home',filter='',debtFilter='',agentPanel='sales',query='',installPrompt=null,qrStream=null,qrObserver=null,queryTimer=null,agentSort='asc',subscriberOwnerFilter='',subscriberStatusFilter='';
+
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],
+    esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
+    money=x=>Number(x||0).toLocaleString('en-US');
+
+const save=()=>{
+  try {
+    localStorage.setItem(STORE,JSON.stringify(data));
+  } catch(e) {
+    console.error("Local storage save error:", e);
   }
 
-  const clone = value => JSON.parse(JSON.stringify(value));
-  const roleRef = uid => db.collection('userRoles').doc(uid);
-  const rowId = row => String(row.id ?? row.code ?? row.value ?? row.username ?? row.name);
-  const paths = (collection, uid) => uid
-      ? db.collection('agentData').doc(uid).collection(collection)
-      : db.collection('appData').doc(collection).collection('records');
-
-  function normalizeData(value) {
-    const out = value || {};
-    for (const key of COLLECTIONS) out[key] ||= [];
-    out.pricing ||= {agent:{device:45000,subscriptions:{1:18000,2:36000,3:54000}},headquarters:{device:50000,subscriptions:{1:25000,2:50000,3:75000}}};
-    return out;
-  }
-
-  function includeSignedInAccount(value, role) {
-    const users = value.users || (value.users = []);
-    if (users.some(user => user.username === role.username)) return false;
-    users.push({
-      id: `firebase-${role.uid}`,
-      name: role.displayName || role.agentName || role.username,
-      username: role.username,
-      code: role.agentCode || '',
-      role: role.role === 'agent' ? 'وكيل' : 'مدير رئيسي'
+  if(window.SariCloud && typeof window.SariCloud.profile === 'function' && window.SariCloud?.profile()?.role==='admin') {
+    return window.SariCloud.save(data).then(()=>{
+      notify('تم حفظ البيانات بنجاح');
+      return true;
+    }).catch(error=>{
+      notify(error?.message||'تعذر حفظ البيانات في السحابة، تمت المزامنة محلياً');
+      return false;
     });
-    return true;
   }
+  notify('تم حفظ البيانات على هذا الجهاز');
+  return Promise.resolve(true);
+};
 
-  function remember(data, uid) {
-    for (const key of COLLECTIONS) {
-      cache[`${uid || 'admin'}:${key}`] = new Map((data[key] || []).map(row => [rowId(row), JSON.stringify(row)]));
-    }
-    cache[`${uid || 'admin'}:pricing`] = JSON.stringify(data.pricing || {});
+function date(x){
+  try{
+    return new Intl.DateTimeFormat('en-US',{day:'numeric',month:'short',year:'numeric'}).format(new Date(x+'T12:00:00'));
+  }catch{
+    return x;
   }
+}
 
-  async function writeRows(collection, rows, uid) {
-    const key = `${uid || 'admin'}:${collection}`;
-    const oldRows = cache[key] || new Map();
-    const newRows = new Map((rows || []).map(row => [rowId(row), JSON.stringify(row)]));
-    let batch = db.batch(), operations = 0;
-    const commitIfFull = async () => { if (operations >= 450) { await batch.commit(); batch = db.batch(); operations = 0; } };
-    for (const [id, json] of newRows) {
-      if (oldRows.get(id) === json) continue;
-      batch.set(paths(collection, uid).doc(id), JSON.parse(json));
-      operations++; await commitIfFull();
-    }
-    for (const id of oldRows.keys()) {
-      if (newRows.has(id)) continue;
-      batch.delete(paths(collection, uid).doc(id));
-      operations++; await commitIfFull();
-    }
-    if (operations) await batch.commit();
-    cache[key] = newRows;
-  }
+function addMonths(dateValue,months){
+  let [y,m,d]=String(dateValue||today()).split('-').map(Number),
+      target=new Date(y,m-1+Number(months),1),
+      last=new Date(target.getFullYear(),target.getMonth()+1,0).getDate();
+  target.setDate(Math.min(d,last));
+  return `${target.getFullYear()}-${String(target.getMonth()+1).padStart(2,'0')}-${String(target.getDate()).padStart(2,'0')}`;
+}
 
-  async function writePricing(pricing, uid) {
-    const key = `${uid || 'admin'}:pricing`, json = JSON.stringify(pricing || {});
-    if (cache[key] === json) return;
-    const ref = uid ? db.collection('agentData').doc(uid).collection('meta').doc('pricing') : db.collection('appData').doc('meta');
-    await ref.set({pricing: pricing || {} });
-    cache[key] = json;
-  }
+function subscriptionMonths(type){
+  return String(type||'').includes('3')||String(type||'').includes('ثلاث')?3:String(type||'').includes('شهرين')||String(type||'').includes('2')?2:1;
+}
 
-  function onlyForAgent(allData, role) {
-    const agent = (allData.agents || []).find(a => a.code === role.agentCode || a.name === role.agentName) || {};
-    const name = agent.name || role.agentName;
-    const code = agent.code || role.agentCode;
-    const codes = (allData.codes || []).filter(c => c.assignedAgentUid === role.uid || c.assignedAgentCode === code);
-    const sales = (allData.sales || []).filter(s => s.seller === name || s.agentUid === role.uid);
-    for (const sale of sales) {
-      if (sale.deviceNo && !codes.some(c => String(c.value) === String(sale.deviceNo))) {
-        codes.push({value:sale.deviceNo,customerName:sale.name,status:'مباع',assignedAgentUid:role.uid,assignedAgentCode:code});
-      }
-    }
-    const user = (allData.users || []).find(u => u.code === code || u.name === name) || {name,code,username:role.username,role:'وكيل'};
-    return normalizeData({
-      agents: agent.id ? [agent] : [], sales,
-      debts: (allData.debts || []).filter(d => d.source === name || d.agentUid === role.uid),
-      users: [user], codes,
-      agentSettlements: (allData.agentSettlements || []).filter(s => s.agent === name || s.agentUid === role.uid),
-      pricing: allData.pricing || {}
-    });
-  }
+function initials(n){
+  return String(n||'').trim().split(/\s+/)[0]?.charAt(0)||'';
+}
 
-  async function replaceAgentView(allData, uid, role) {
-    const view = onlyForAgent(allData, {...role,uid});
-    for (const collection of COLLECTIONS) await writeRows(collection, view[collection], uid);
-    await writePricing(view.pricing, uid);
-  }
+function fld(label,name,type='text',options={}){
+  let full=options.full?' full':'',
+      required=options.required===false?'':' required',
+      value=options.value??'',
+      placeholder=options.placeholder?` placeholder="${esc(options.placeholder)}"`:'',
+      attrs=`${options.min!==undefined?` min="${esc(options.min)}"`:''}${options.max!==undefined?` max="${esc(options.max)}"`:''}${options.step!==undefined?` step="${esc(options.step)}"`:''}`;
 
-  async function loadCollection(collection, uid) {
-    const snapshot = await paths(collection, uid).get();
-    return snapshot.docs.map(doc => ({...doc.data(), id:doc.data().id ?? doc.id}));
-  }
+  let control=type==='select'?
+      `<select name="${esc(name)}"${required}>${(options.options||[]).map(x=>`<option value="${esc(x.value)}"${String(x.value)===String(value)?' selected':''}>${esc(x.label)}</option>`).join('')}</select>`:
+      `<input name="${esc(name)}" type="${esc(type)}" value="${esc(value)}"${required}${placeholder}${attrs}>`;
 
-  async function readData(uid) {
-    const rows = await Promise.all(COLLECTIONS.map(key => loadCollection(key, uid)));
-    const pricingRef = uid ? db.collection('agentData').doc(uid).collection('meta').doc('pricing') : db.collection('appData').doc('meta');
-    const pricingDoc = await pricingRef.get();
-    const value = Object.fromEntries(COLLECTIONS.map((key,index) => [key,rows[index]]));
-    value.pricing = pricingDoc.exists ? pricingDoc.data().pricing : undefined;
-    return normalizeData(value);
-  }
+  return `<div class="field${full}"><label for="${esc(name)}">${esc(label)}</label>${control}</div>`;
+}
 
-  async function syncAdminSnapshot(data) {
-    const roles = await db.collection('userRoles').get();
-    const agents = roles.docs.filter(doc => ['agent', 'وكيل'].includes(doc.data().role));
-    await Promise.all(agents.map(doc => replaceAgentView(data, doc.id, doc.data())));
-  }
+function notify(s){
+  let t=$('#toast');
+  if(!t) return;
+  t.textContent=s;
+  t.classList.add('show');
+  clearTimeout(notify.t);
+  notify.t=setTimeout(()=>t.classList.remove('show'),2400);
+}
 
-  async function saveAdmin(data) {
-    for (const collection of COLLECTIONS) await writeRows(collection, data[collection], null);
-    await writePricing(data.pricing, null);
-    syncAdminSnapshot(data).catch(error => showBackgroundCloudError(error));
-  }
+function heading(title,sub,action=''){
+  let greet=view==='home'?(new Date().getHours()<12?'صباح الخير، أهلاً بك':'مساء الخير، أهلاً بك'):'إدارة النظام';
+  return `<div class="heading"><div><small>${greet}</small><h1>${title}</h1><p>${sub}</p></div>${action?`<div class="heading-actions"><button class="button primary" data-action="${action}"><span class="plus">＋</span>${({sale:'تسجيل عملية بيع',agent:'إضافة وكيل',debt:'إضافة دين',user:'إضافة مستخدم',code:'توليد أكواد'})[action]}</button>${action==='sale'?'<button class="button primary" data-action="new-device-sale">بيع جهاز جديد</button><button class="button primary" data-action="agent-invoice">تسجيل عملية بيع للوكيل</button>':''}${action==='debt'?'<button class="button secondary" data-action="export-debts"><span class="plus">⇩</span>تصدير الديون</button>':''}</div>`:''}</div>`;
+}
 
-  function detach() { listeners.forEach(unsub => unsub()); listeners=[]; submissionListeners.forEach(unsub=>unsub()); submissionListeners.clear(); pendingSubmissions.clear(); }
-  function publish(value) { if (dataCallback) dataCallback(normalizeData(clone(value))); }
+function stat(name,value,unit,icon,foot){
+  return `<div class="stat"><div class="stat-top"><span>${name}</span><span class="stat-icon">${icon}</span></div><div class="stat-value">${value}<small>${unit||''}</small></div><div class="stat-foot">${foot}</div></div>`;
+}
 
-  function publishAdmin(state) {
-    const sales=[...(state.sales||[])], ids=new Set(sales.map(s=>String(s.id)));
-    pendingSubmissions.forEach(({sale})=>{if(!ids.has(String(sale.id))){sales.push(sale);ids.add(String(sale.id))}});
-    publish({...state,sales});
-  }
-
-  function watchAgentSubmissions(state) {
-    listeners.push(db.collection('userRoles').onSnapshot(snapshot=>{
-      const agents=new Map(snapshot.docs.filter(doc=>['agent', 'وكيل'].includes(doc.data().role)).map(doc=>[doc.id,doc.data()]));
-      submissionListeners.forEach((unsubscribe,uid)=>{if(!agents.has(uid)){unsubscribe();submissionListeners.delete(uid);for(const [key,item] of pendingSubmissions)if(item.uid===uid)pendingSubmissions.delete(key)}});
-      agents.forEach((role,uid)=>{
-        if(submissionListeners.has(uid))return;
-        const unsubscribe=db.collection('agentSubmissions').doc(uid).collection('items').onSnapshot(items=>{
-          for(const [key,item] of pendingSubmissions)if(item.uid===uid)pendingSubmissions.delete(key);
-          items.docs.forEach(doc=>{
-            const sale=doc.data().sale;
-            if(sale)pendingSubmissions.set(`${uid}:${doc.id}`,{uid,sale:{...sale,agentRequestPending:true}});
-          });
-          publishAdmin(state);
-        },showBackgroundCloudError);
-        submissionListeners.set(uid,unsubscribe);
-      });
-      publishAdmin(state);
-    },showBackgroundCloudError));
-  }
-
-  function watchAdmin() {
-    const state = normalizeData({});
-    const rebuild = () => publishAdmin(state);
-    for (const collection of COLLECTIONS) {
-      listeners.push(paths(collection).onSnapshot(snapshot => {
-        if (snapshot.metadata.hasPendingWrites) return;
-        state[collection] = snapshot.docs.map(doc => ({...doc.data(),id:doc.data().id ?? doc.id}));
-        cache[`admin:${collection}`] = new Map(state[collection].map(row => [rowId(row),JSON.stringify(row)]));
-        rebuild();
-      }, showBackgroundCloudError));
-    }
-    listeners.push(db.collection('appData').doc('meta').onSnapshot(snapshot => {
-      if (snapshot.metadata.hasPendingWrites) return;
-      state.pricing = snapshot.exists ? snapshot.data().pricing : undefined;
-      cache['admin:pricing'] = JSON.stringify(state.pricing || {});
-      rebuild();
-    }, showBackgroundCloudError));
-    watchAgentSubmissions(state);
-  }
-
-  function watchAgent(uid) {
-    const state = normalizeData({});
-    const rebuild = () => publish(state);
-    for (const collection of COLLECTIONS) {
-      listeners.push(paths(collection,uid).onSnapshot(snapshot => {
-        if (snapshot.metadata.hasPendingWrites) return;
-        state[collection] = snapshot.docs.map(doc => ({...doc.data(),id:doc.data().id ?? doc.id}));
-        cache[`${uid}:${collection}`] = new Map(state[collection].map(row => [rowId(row),JSON.stringify(row)]));
-        rebuild();
-      }, showBackgroundCloudError));
-    }
-    listeners.push(db.collection('agentData').doc(uid).collection('meta').doc('pricing').onSnapshot(snapshot => {
-      if (snapshot.metadata.hasPendingWrites) return;
-      state.pricing = snapshot.exists ? snapshot.data().pricing : undefined;
-      cache[`${uid}:pricing`] = JSON.stringify(state.pricing || {});
-      rebuild();
-    }, showBackgroundCloudError));
-  }
-
-  async function activateInner(user) {
-    detach(); currentUser=user; profile=null;
-    const roleDoc=await roleRef(user.uid).get();
-    if(!roleDoc.exists) throw new Error('لم يُضف حسابك إلى userRoles في Firestore بعد.');
-    profile={...roleDoc.data(),uid:user.uid};
-    if(!['admin','agent'].includes(profile.role)) throw new Error('دور الحساب غير صالح.');
-    let value;
-    if(profile.role==='admin') {
-      const existing=await readData(null);
-      const meta=await db.collection('appData').doc('meta').get();
-      if(!meta.exists) { await saveAdmin(window.sariLocalData()); value=await readData(null); }
-      else value=existing;
-      if (includeSignedInAccount(value, profile)) await saveAdmin(value);
-      remember(value,null); publish(value); watchAdmin();
-    } else {
-      value=await readData(user.uid); remember(value,user.uid); publish(value); watchAgent(user.uid);
-    }
-    window.sariCloudProfile=profile;
-    window.dispatchEvent(new CustomEvent('sari-cloud-ready',{detail:{profile}}));
-  }
-
-  async function activate(user) {
-    if (activationPromise) return activationPromise;
-    activationPromise = activateInner(user);
-    try { return await activationPromise; } finally { activationPromise = null; }
-  }
-
-  let lastCloudError = '';
-  function showCloudError(error, operation = 'مزامنة البيانات', notifyUser = true) {
-    console.error('Firebase:',error);
-    if (error?.code === 'permission-denied' && !notifyUser) return;
-    const message = error?.code === 'permission-denied'
-        ? `رفضت قواعد Firebase العملية: ${operation}. تأكد من وجود userRoles للحساب.`
-        : 'تعذر مزامنة Firebase؛ تحقق من الاتصال وإعدادات المشروع.';
-    if(window.notify && message !== lastCloudError) {
-      lastCloudError = message;
-      notify(message);
-    }
-  }
-  const showBackgroundCloudError = error => showCloudError(error, 'المزامنة الخلفية', false);
-
-  window.SariCloud={
-    ready,
-    profile:()=>profile,
-    async signIn(username,password) {
-      if(!ready) throw new Error('إعداد Firebase غير مكتمل.');
-      const email=`${String(username).trim().toLowerCase()}@${config.projectId}.firebaseapp.com`;
-      const credential=await auth.signInWithEmailAndPassword(email,password);
-      await activate(credential.user);
-    },
-    async signOut(){detach();profile=null;currentUser=null;await auth.signOut();},
-    async save(data){
-      if(!ready||!profile)return;
-      if(profile.role!=='admin')return;
-      saveQueue=saveQueue.then(()=>saveAdmin(clone(data)));
-      return saveQueue.catch(error=>{
-        showCloudError(error, 'حفظ بيانات المركز');
-        throw error;
-      });
-    },
-    async submitSale(sale){
-      if(!profile||profile.role!=='agent')throw new Error('حساب الوكيل غير مصادق عليه.');
-      const ref=db.collection('agentSubmissions').doc(currentUser.uid).collection('items').doc(String(sale.id));
-      await ref.set({submittedBy:currentUser.uid,sale:clone(sale),createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-    },
-    async resolveSaleSubmission(saleId,seller){
-      if(!profile||profile.role!=='admin')throw new Error('اعتماد طلبات البيع متاح للمدير فقط.');
-      const entry=[...pendingSubmissions.entries()].find(([,item])=>String(item.sale.id)===String(saleId)&&(!seller||item.sale.seller===seller));
-      if(!entry)return;
-      const [key,{uid}]=entry;
-      await db.collection('agentSubmissions').doc(uid).collection('items').doc(String(saleId)).delete();
-      pendingSubmissions.delete(key);
-    },
-    async manageUser(payload){
-      if(!ready||!profile||!['admin','أدمن','مدير رئيسي'].includes(profile.role)) throw new Error('هذه العملية متاحة للمدير فقط.');
-      const token=await currentUser.getIdToken();
-      const response=await fetch('/api/manage-user',{
-        method:'POST',
-        headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
-        body:JSON.stringify(payload)
-      });
-      const result=await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(result.error||`تعذر تنفيذ إدارة الحساب (HTTP ${response.status}).`);
-      return result;
-    },
-    start(onData,onSignedOut){
-      dataCallback=onData;
-      if(!ready){onSignedOut?.();return}
-      auth.onAuthStateChanged(async user=>{
-        if(!user){
-          detach();
-          profile=null;
-          currentUser=null;
-          onSignedOut?.();
-          return;
-        }
-        try {
-          await activate(user);
-        } catch(error) {
-          showCloudError(error);
-          // تم منع إطلاق دالة تسجيل الخروج هنا للحفاظ على بقاء المستخدم واستمرار العمل محلياً أو تخطي الخطأ المؤقت
-        }
-      });
-    }
-  };
-})();
+function state(paid,amount){
+  return paid>=amount?'<span class="status">مكتمل</span>':'<span class="status debt">عليه دين</span>';
+}
