@@ -57,7 +57,6 @@ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],
     esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
     money=x=>Number(x||0).toLocaleString('en-US');
 
-// دالة الحفظ الآمنة بدون تسجيل خروج قسري أو أخطاء تعارض السحاب
 const save=()=>{
   try {
     localStorage.setItem(STORE,JSON.stringify(data));
@@ -70,7 +69,6 @@ const save=()=>{
       notify('تم حفظ البيانات بنجاح');
       return true;
     }).catch(error=>{
-      // منع الخروج التلقائي والاكتفاء بعرض إشعار تنبيهي دون إتلاف الجلسة
       notify(error?.message||'تعذر حفظ البيانات في السحابة، تمت المزامنة محلياً');
       return false;
     });
@@ -126,13 +124,21 @@ function notify(s){
   notify.t=setTimeout(()=>t.classList.remove('show'),2400);
 }
 
+// دالة badge آمنة تماماً ولا تسبب أي أخطاء عند عدم توفر العناصر في الواجهة
 function badge(){
-  if($('#sales-badge')) $('#sales-badge').textContent=data.sales.length;
-  if($('#debts-badge')) $('#debts-badge').textContent=data.debts.length;
-  let now=new Date(),
-      dateText=new Intl.DateTimeFormat('ar-IQ-u-nu-latn',{weekday:'long',day:'numeric',month:'long'}).format(now),
-      timeText=new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit'}).format(now);
-  if($('#today')) $('#today').textContent=`${dateText} · ${timeText}`;
+  let salesBadge = $('#sales-badge');
+  let debtsBadge = $('#debts-badge');
+  let todayEl = $('#today');
+
+  if(salesBadge) salesBadge.textContent = data.sales.length;
+  if(debtsBadge) debtsBadge.textContent = data.debts.length;
+
+  if(todayEl) {
+    let now = new Date(),
+        dateText = new Intl.DateTimeFormat('ar-IQ-u-nu-latn',{weekday:'long',day:'numeric',month:'long'}).format(now),
+        timeText = new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit'}).format(now);
+    todayEl.textContent = `${dateText} · ${timeText}`;
+  }
 }
 
 function heading(title,sub,action=''){
