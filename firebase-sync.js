@@ -284,12 +284,18 @@
       dataCallback=onData;
       if(!ready){onSignedOut?.();return}
       auth.onAuthStateChanged(async user=>{
-        if(!user){detach();profile=null;currentUser=null;onSignedOut?.();return}
+        if(!user){
+          detach();
+          profile=null;
+          currentUser=null;
+          onSignedOut?.();
+          return;
+        }
         try {
           await activate(user);
         } catch(error) {
           showCloudError(error);
-          // تم منع تسجيل الخروج هنا حتى لا يخرج المستخدم تلقائياً، مع محاولة الاستمرار ببيانات الكاش أو المحاولة مجدداً
+          // تم منع إطلاق دالة تسجيل الخروج هنا للحفاظ على بقاء المستخدم واستمرار العمل محلياً أو تخطي الخطأ المؤقت
         }
       });
     }
