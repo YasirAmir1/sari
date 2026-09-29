@@ -4,7 +4,7 @@ function getAdmin() {
   if (admin.apps.length) return admin;
   const privateKey = String(process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
   if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !privateKey) {
-    throw new Error('Firebase Admin environment variables are missing.');
+    throw new Error('لم يتم ضبط متغيرات بيئة Firebase Admin (FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, FIREBASE_PROJECT_ID) في إعدادات استضافة Vercel. يرجى إضافتها في إعدادات المشروع بـ Vercel لتفعيل الحفظ المركزي في السستم.');
   }
   admin.initializeApp({
     credential: admin.credential.cert({
