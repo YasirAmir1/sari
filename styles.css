@@ -218,6 +218,9 @@ button:focus-visible,.button:focus-visible,a:focus-visible,input:focus-visible,s
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 .agent-mode .agent-dashboard-stats{grid-template-columns:repeat(6,minmax(0,1fr))}
 .agent-mode .agent-sale-actions .button{background:#245b89;color:#fff}
+.whatsapp-phone-link{color:#128c7e;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.whatsapp-phone-link:hover{text-decoration:underline;color:#25d366}
+body.dark .whatsapp-phone-link{color:#25d366}
 .subscriber-table{min-width:620px}
 .subscriber-row,.subscriber-actions{display:flex;align-items:center;gap:8px}
 .subscriber-row{justify-content:space-between;min-width:330px}
